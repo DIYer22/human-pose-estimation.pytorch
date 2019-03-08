@@ -98,6 +98,8 @@ config.TRAIN.CHECKPOINT = ''
 config.TRAIN.BATCH_SIZE = 32
 config.TRAIN.SHUFFLE = True
 
+
+config.TRAIN.CRITERION = 'msssm_mean'
 # testing
 config.TEST = edict()
 

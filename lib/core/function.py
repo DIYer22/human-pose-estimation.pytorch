@@ -45,8 +45,18 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
         target = target.cuda(non_blocking=True)
         target_weight = target_weight.cuda(non_blocking=True)
 
-        loss = criterion(output, target, target_weight)
-
+#        loss = criterion(output, target, target_weight)
+        
+        
+        joints = meta['joints_h']
+        joints[...,-1] = target_weight[...,0]
+        loss = criterion(output, joints)
+        loss = loss.mean()
+        from boxx.ylth import nanDete, g
+#        g()
+#        print(loss)
+        nanDete(loss)
+        
         # compute gradient and do update step
         optimizer.zero_grad()
         loss.backward()
@@ -129,7 +139,12 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             target = target.cuda(non_blocking=True)
             target_weight = target_weight.cuda(non_blocking=True)
 
-            loss = criterion(output, target, target_weight)
+#            loss = criterion(output, target, target_weight)
+            
+            
+            joints = meta['joints_h']
+            joints[...,-1] = target_weight[...,0]
+            loss = criterion(output, joints)
 
             num_images = input.size(0)
             # measure accuracy and record loss

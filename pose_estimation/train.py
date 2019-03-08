@@ -8,6 +8,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from boxx import *
+from boxx import pathjoin, basename, dirname, findints, cf
+
 import argparse
 import os
 import pprint
@@ -38,6 +41,8 @@ import dataset
 import models
 
 
+from core.spatialSoftmax import MultiScaleSpatialSoftmax, SpatialSoftmax
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train keypoints network')
     # general
@@ -62,6 +67,28 @@ def parse_args():
                         help='num of dataloader workers',
                         type=int)
 
+
+    parser.add_argument('--task',
+                        help='task name default is "ssm"(spatial softmax) ',
+                        default="ssm",
+                        type=str)
+    parser.add_argument('--pointMaxW',
+                        help='pointMaxW',
+                        default=None,
+                        type=float)
+    parser.add_argument('--probMargin',
+                        help='probMargin',
+                        default=None,
+                        type=float)
+    parser.add_argument('--t',
+                        help='tempuer',
+                        default=1,
+                        type=float)
+    parser.add_argument('--rs',
+                        help='rs',
+                        default=[8, 4, 2, 1],
+                        type=findints)
+    
     args = parser.parse_args()
 
     return args
@@ -76,10 +103,15 @@ def reset_config(config, args):
 
 def main():
     args = parse_args()
+    
+    cf.args = args
+    
     reset_config(config, args)
 
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
+    
+    tb_log_dir = pathjoin(dirname(tb_log_dir), 'w%s,m%s,rs%s,t%s_'%(args.pointMaxW, args.probMargin, ''.join(map(str, args.rs)), args.t) +basename(tb_log_dir))
 
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
@@ -98,7 +130,8 @@ def main():
     shutil.copy2(
         os.path.join(this_dir, '../lib/models', config.MODEL.NAME + '.py'),
         final_output_dir)
-
+    
+    
     writer_dict = {
         'writer': SummaryWriter(log_dir=tb_log_dir),
         'train_global_steps': 0,
@@ -115,9 +148,25 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
     # define loss function (criterion) and optimizer
-    criterion = JointsMSELoss(
-        use_target_weight=config.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
+#    criterion = JointsMSELoss(
+#        use_target_weight=config.LOSS.USE_TARGET_WEIGHT
+#    ).cuda()
+    
+    if config.TRAIN.CRITERION == 'msssm_mean':
+        criterion = MultiScaleSpatialSoftmax(log_freq=60*10, cyc_rs=args.rs, poolings=['avg', 'max'][:], pointMaxW=args.pointMaxW, probMargin=args.probMargin)
+        # p[1, 4, 10]* m[0, .5, .8]
+#        criterion = MultiScaleSpatialSoftMax( poolings=['avg', 'max'], pointMaxW=1)
+#        criterion = MultiScaleSpatialSoftMax(cyc_rs=[8, 4, 2, ], pointMaxW=1)
+    elif config.TRAIN.CRITERION == 'ssm_mean':
+        criterion = SpatialSoftmax()
+#    criterion = torch.nn.DataParallel(criterion, device_ids=gpus).cuda()
+        
+#    cf.debugPoinMax = 30
+    cf.debugPoinMax = False
+    
+    if cf.debugPoinMax:
+        criterion = MultiScaleSpatialSoftmax(log_freq=30, cyc_rs=[], poolings=['avg', 'max'][:], pointMaxW=args.pointMaxW,)
+    
 
     optimizer = get_optimizer(config, model)
 
@@ -200,7 +249,7 @@ def main():
         final_model_state_file))
     torch.save(model.module.state_dict(), final_model_state_file)
     writer_dict['writer'].close()
-
+    print(args)
 
 if __name__ == '__main__':
     main()
