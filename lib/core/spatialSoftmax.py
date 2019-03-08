@@ -12,7 +12,7 @@ if not cloud:
     from boxx.ylth import *
 import torch as th
 import torch
-from boxx import Vector, getWeightCore, resize, np, sliceLimit, timegap, timeit, dicto, map2, strnum, Markdown
+from boxx import Vector, getWeightCore, resize, np, sliceLimit, timegap, timeit, dicto, map2, strnum, Markdown, cf
 import torch
 # papre output and gt
 
@@ -54,9 +54,10 @@ def gradLoss(feat, pgt, c_max, c_step, ):
 
 #cf.debugPoinMax = 2
 class PointMax(nn.Module):
-    def __init__(self, w=1,):
+    def __init__(self, w=1, suppressionBg=False):
         super(PointMax, self).__init__()
         self.w = w
+        self.suppressionBg = suppressionBg
     def forward(self, feats, xyens):
         shape = feats.shape
         device = feats.device
@@ -82,12 +83,10 @@ class PointMax(nn.Module):
         loss = (loss*indMask).sum()/(indMask.sum()+eps)
         loss *= self.w
         
-        if cf.debugPoinMax:
+        if self.suppressionBg or cf.get('debugPoinMax'):
+            backloss = self._suppressionBg(feats, loss)
+        
             s = f"pointmax: {loss} + "
-            backsiged = th.sigmoid(feats.mean(-1).mean(-1))
-            backloss = -th.log(1-backsiged + eps)
-            backloss = backloss.mean()*self.w
-            
             loss += backloss
             s += f"backloss: {backloss}"
             s = f"loss: {loss} = " + s
@@ -96,6 +95,11 @@ class PointMax(nn.Module):
 #        g()
 #        1/0
         return loss
+    def _suppressionBg(self, feats):
+        backsiged = th.sigmoid(feats.mean(-1).mean(-1))
+        backloss = -th.log(1-backsiged + eps)
+        backloss = backloss.mean()*self.w
+        return backloss
     
     
 def getMaskOfPgt(argkv):
@@ -141,29 +145,29 @@ class SpatialSoftmax(nn.Module):
 #            mask = self.getMask(pgt)
 #            masks.append(mask[None])
 #        return th.cat(masks)>0
-    def forward_single_threading(self, feats, pgtns):
-        def softmaxAB(a, b, ):
-            expa = th.exp(a)
-            expb = th.exp(b)
-            return expa/(expa+expb+eps)
-        
-        self.shape = feats.shape
-        losses = []
-        for batchind, (feat, pgts) in enumerate(zip(feats, pgtns)):
-            for featNode, pgt in zip(feat, pgts):
-                if not isinstance(pgt, Vector):
-                    pgt = Vector(pgt.cpu())
-                inMask, outMask = self.getMask(pgt)
-                inCycs = featNode[inMask]
-                outCycs = featNode[outMask]
-                for pool in self.poolings:
-                    pool = {'avg':th.mean, 'max':th.max}[pool]
-                    inCyc, outCyc = pool(inCycs), pool(outCycs)
-                    prob = softmaxAB(inCyc, outCyc)
-                    loss = -th.log(prob + eps)
-                    losses += [loss]
-        loss = sum(losses)/len(losses)
-        return loss
+#    def forward_single_threading(self, feats, pgtns):
+#        def softmaxAB(a, b,):
+#            expa = th.exp(a)
+#            expb = th.exp(b)
+#            return expa/(expa+expb+eps)
+#        
+#        self.shape = feats.shape
+#        losses = []
+#        for batchind, (feat, pgts) in enumerate(zip(feats, pgtns)):
+#            for featNode, pgt in zip(feat, pgts):
+#                if not isinstance(pgt, Vector):
+#                    pgt = Vector(pgt.cpu())
+#                inMask, outMask = self.getMask(pgt)
+#                inCycs = featNode[inMask]
+#                outCycs = featNode[outMask]
+#                for pool in self.poolings:
+#                    pool = {'avg':th.mean, 'max':th.max}[pool]
+#                    inCyc, outCyc = pool(inCycs), pool(outCycs)
+#                    prob = softmaxAB(inCyc, outCyc)
+#                    loss = -th.log(prob + eps)
+#                    losses += [loss]
+#        loss = sum(losses)/len(losses)
+#        return loss
     def forward(self, feats, xyens):
         logName = 'cyc_r: %s, out_cyc_r: %s'%(self.cyc_r, self.out_cyc_r or 'N')
         logTag = timegap(self.log_freq, logName)
@@ -185,7 +189,10 @@ class SpatialSoftmax(nn.Module):
         masks = th.from_numpy(np.uint8(masks)).type(tensorType).cuda()
         
         loss = 0
-        def softmaxFgBg(fg, bg):
+        #(lambda a,b,t=1:e**(t*a)/(e**(t*a)+e**(t*b)))(2,1,5)
+        
+        
+        def softmaxFgBg(fg, bg, t=1):
             fge = th.exp(fg)
             bge = th.exp(bg)
             prob = fge/(fge+bge+eps)
