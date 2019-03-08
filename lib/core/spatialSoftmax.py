@@ -118,7 +118,7 @@ def layerNormaFun(feat):
     return (feat-mean)/((((feat-mean)**2).mean(-1, True).mean(-1, True)+eps)**.5 + eps)
 
 class SpatialSoftmax(nn.Module):
-    def __init__(self, cyc_r=7, log_freq=60*5, poolings=['avg'], number_worker=8, out_cyc_r=None, layerNorma=True, probMargin=None):
+    def __init__(self, cyc_r=7, log_freq=60*5, poolings=['avg'], number_worker=8, out_cyc_r=None, layerNorma=True, probMargin=None, temper=1):
         super(SpatialSoftmax, self).__init__()
         self.out_cyc_r = out_cyc_r
         self.poolings = poolings
@@ -126,6 +126,7 @@ class SpatialSoftmax(nn.Module):
         self.cyc_r = cyc_r
         self.layerNorma = layerNorma
         self.probMargin = probMargin
+        self.temper = temper
         raw_cycle_tmpl = getWeightCore(300, seta=.25)
         raw_cycle_tmpl = raw_cycle_tmpl > raw_cycle_tmpl[150,0]
         cycle_tmpl_np = resize(raw_cycle_tmpl, np.int8((cyc_r*2, cyc_r*2, )))
@@ -193,8 +194,8 @@ class SpatialSoftmax(nn.Module):
         
         
         def softmaxFgBg(fg, bg, t=1):
-            fge = th.exp(fg)
-            bge = th.exp(bg)
+            fge = th.exp(fg*t)
+            bge = th.exp(bg*t)
             prob = fge/(fge+bge+eps)
             return prob
         def CE(fg, bg):
@@ -205,7 +206,7 @@ class SpatialSoftmax(nn.Module):
         if 'avg' in self.poolings:
             bgAvgPool = (feats * masks[...,0,:,:]).sum(-1).sum(-1)/(masks[...,0,:,:].sum(-1).sum(-1)+eps)
             fgAvgPool = (feats * masks[...,1,:,:]).sum(-1).sum(-1)/(masks[...,1,:,:].sum(-1).sum(-1)+eps)
-            avgProbs = softmaxFgBg(fgAvgPool, bgAvgPool)
+            avgProbs = softmaxFgBg(fgAvgPool, bgAvgPool, self.temper)
             avgLosses = -th.log(avgProbs+eps)
             
             indexMask = existMask*(avgProbs<self.probMargin).type(tensorType) if self.probMargin else existMask
@@ -220,7 +221,7 @@ class SpatialSoftmax(nn.Module):
         if 'max' in self.poolings:
             bgMaxPool = (feats * masks[...,0,:,:]).max(-1)[0].max(-1)[0]
             fgMaxPool = (feats * masks[...,1,:,:]).max(-1)[0].max(-1)[0]
-            maxProbs = softmaxFgBg(fgMaxPool, bgMaxPool)
+            maxProbs = softmaxFgBg(fgMaxPool, bgMaxPool, self.temper)
             maxLosses = -th.log(maxProbs+eps)
             
             indexMask = existMask*(maxProbs<self.probMargin).type(tensorType) if self.probMargin else existMask
@@ -237,17 +238,18 @@ class SpatialSoftmax(nn.Module):
 #        g()
         return loss
 class MultiScaleSpatialSoftmax(nn.Module):
-    def __init__(self, cyc_rs=[8, 4, 2, 1], weights=None, log_freq=60*5, poolings=['avg'], out_cyc=True, pointMaxW=1, layerNorma=True, probMargin=None):
+    def __init__(self, cyc_rs=[8, 4, 2, 1], weights=None, log_freq=60*5, poolings=['avg'], out_cyc=True, pointMaxW=1, layerNorma=True, probMargin=None, temper=1):
         self.poolings = poolings
         self.layerNorma = layerNorma
         super(MultiScaleSpatialSoftmax, self).__init__()
         self.cyc_rs = cyc_rs
         self.log_freq = log_freq
         self.spatialSoftmaxs = []
+        self.temper = temper
         
         out_cyc_r = None
         for r in cyc_rs:
-            ssm = SpatialSoftmax(r, log_freq=log_freq, poolings=poolings, out_cyc_r=out_cyc_r, layerNorma=False, probMargin=probMargin)
+            ssm = SpatialSoftmax(r, log_freq=log_freq, poolings=poolings, out_cyc_r=out_cyc_r, layerNorma=False, probMargin=probMargin, temper=temper)
             self.spatialSoftmaxs.append(ssm)
             if out_cyc:
                 out_cyc_r = r

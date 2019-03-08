@@ -74,14 +74,14 @@ def parse_args():
                         type=str)
     parser.add_argument('--pointMaxW',
                         help='pointMaxW',
-                        default=None,
+                        default=0,
                         type=float)
     parser.add_argument('--probMargin',
                         help='probMargin',
-                        default=None,
+                        default=0,
                         type=float)
     parser.add_argument('--t',
-                        help='tempuer',
+                        help='temper for softmax',
                         default=1,
                         type=float)
     parser.add_argument('--rs',
@@ -153,7 +153,7 @@ def main():
 #    ).cuda()
     
     if config.TRAIN.CRITERION == 'msssm_mean':
-        criterion = MultiScaleSpatialSoftmax(log_freq=60*10, cyc_rs=args.rs, poolings=['avg', 'max'][:], pointMaxW=args.pointMaxW, probMargin=args.probMargin)
+        criterion = MultiScaleSpatialSoftmax(log_freq=60*10, cyc_rs=args.rs, poolings=['avg', 'max'][:], pointMaxW=args.pointMaxW, probMargin=args.probMargin, temper=args.t)
         # p[1, 4, 10]* m[0, .5, .8]
 #        criterion = MultiScaleSpatialSoftMax( poolings=['avg', 'max'], pointMaxW=1)
 #        criterion = MultiScaleSpatialSoftMax(cyc_rs=[8, 4, 2, ], pointMaxW=1)
