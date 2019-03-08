@@ -118,7 +118,7 @@ class JointsDataset(Dataset):
 
         target = torch.from_numpy(target)
         target_weight = torch.from_numpy(target_weight)
-
+        
         meta = {
             'image': image_file,
             'filename': filename,
@@ -130,6 +130,15 @@ class JointsDataset(Dataset):
             'rotation': r,
             'score': score
         }
+        
+        from boxx import cf
+        if cf.args.task == 'ssm':
+            feat_stride = self.image_size / self.heatmap_size
+            joints_h = copy.deepcopy(joints)
+            joints_h[:, 0] = (joints_h[:,0] / feat_stride[0] + 0.5)
+            joints_h[:, 1] = (joints_h[:,1] / feat_stride[1] + 0.5)
+            joints_h = joints_h.astype(np.int32)
+            meta['joints_h'] = joints_h
 
         return input, target, target_weight, meta
 
