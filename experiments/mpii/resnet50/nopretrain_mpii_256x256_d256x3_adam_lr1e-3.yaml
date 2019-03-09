@@ -64,7 +64,7 @@ TRAIN:
   NESTEROV: false
 TEST:
   BATCH_SIZE: 32
-  FLIP_TEST: false
+  FLIP_TEST: true
   MODEL_FILE: ''
 DEBUG:
   DEBUG: false
