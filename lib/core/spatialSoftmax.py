@@ -110,6 +110,10 @@ def getMaskOfPgt(argkv):
     if out_cyc_r:
         bg -= 1
     mask = pasteImg(bg, cycle_tmpl, pgt-cycle_tmpl.shape[-1]//2)
+#    g()
+#    print(pgt)
+#    show-mask
+#    tree-argkv
     return (mask==0), (mask==1), 
 
 def layerNormaFun(feat):
@@ -117,6 +121,13 @@ def layerNormaFun(feat):
 #    return (feat-mean)/((feat-mean)**2).mean(-1, True).mean(-1, True)**.5
     return (feat-mean)/((((feat-mean)**2).mean(-1, True).mean(-1, True)+eps)**.5 + eps)
 
+def getCycle(r):
+    y,x = np.mgrid[-r:r+1,-r:r+1]
+    distance = (y**2 + x**2)**.5
+    cyc = distance<distance[r,0]
+    return cyc
+#    show-[distance, cyc]
+    
 class SpatialSoftmax(nn.Module):
     def __init__(self, cyc_r=7, log_freq=60*5, poolings=['avg'], number_worker=8, out_cyc_r=None, layerNorma=True, probMargin=None, temper=1):
         super(SpatialSoftmax, self).__init__()
@@ -127,13 +138,23 @@ class SpatialSoftmax(nn.Module):
         self.layerNorma = layerNorma
         self.probMargin = probMargin
         self.temper = temper
-        raw_cycle_tmpl = getWeightCore(300, seta=.25)
-        raw_cycle_tmpl = raw_cycle_tmpl > raw_cycle_tmpl[150,0]
-        cycle_tmpl_np = resize(raw_cycle_tmpl, np.int8((cyc_r*2, cyc_r*2, )))
-        cycle_tmpl = np.int32(cycle_tmpl_np > .5)
+#        raw_cycle_tmpl = getWeightCore(300, seta=.25)
+#        raw_cycle_tmpl = raw_cycle_tmpl > raw_cycle_tmpl[150,0]
+#        cycle_tmpl_np = resize(raw_cycle_tmpl, np.int8((cyc_r*2, cyc_r*2, )))
+        
+        cyc_tmpl_np = getCycle(cyc_r)
+        cycle_tmpl = np.int32(cyc_tmpl_np>.5)
+#        g()
         if out_cyc_r is not None:
-            out_cycle_tmpl_np = resize(raw_cycle_tmpl, (out_cyc_r*2, out_cyc_r*2, ))
+#            out_cycle_tmpl_np = resize(raw_cycle_tmpl, (out_cyc_r*2, out_cyc_r*2, ))
+#            out_cycle_tmpl = np.int32(out_cycle_tmpl_np >.5) - 1
+            
+            
+            out_cycle_tmpl_np = getCycle(out_cyc_r)
             out_cycle_tmpl = np.int32(out_cycle_tmpl_np >.5) - 1
+            
+            
+            
             inCycIndx = np.zeros(out_cycle_tmpl.shape, np.bool)
             pasteImg(inCycIndx, cycle_tmpl , Vector([out_cyc_r-cyc_r]*2))
             out_cycle_tmpl[inCycIndx] = 1
@@ -193,10 +214,21 @@ class SpatialSoftmax(nn.Module):
         #(lambda a,b,t=1:e**(t*a)/(e**(t*a)+e**(t*b)))(2,1,5)
         
         
-        def softmaxFgBg(fg, bg, t=1):
+        def softmaxFgBgOld(fg, bg, t=1):
             fge = th.exp(fg*t)
             bge = th.exp(bg*t)
             prob = fge/(fge+bge+eps)
+            return prob
+        def softmaxFgBg(fg, bg, t=1):
+            diff = bg-fg
+            toExp = t*diff
+            if (toExp > 80).sum() and timegap(1, 'toExp'):
+                from boxx import prettyFrameLocation, pred
+                print(prettyFrameLocation())
+                pred-"toExp.max() is %.2f > 80, diff.max() is %.2f"%(toExp.max(), diff.max())
+                
+                
+            prob = 1/(1+th.exp(diff))
             return prob
         def CE(fg, bg):
             prob = softmaxFgBg(fg, bg)
@@ -286,14 +318,15 @@ if 0:
     
 if __name__ == "__main__":
     hw = Vector((64, 64))
+    hw = Vector((9, 9))
     channl = 1
     batch = 1
     multi_batch = False
     multi_batch = True
     if multi_batch:
         gpun = 1
-        batchPerGpu = 3
-        channl = 2
+        batchPerGpu = 1
+        channl = 1
         if cloud:
             batchPerGpu = 32
             channl = 17
@@ -324,8 +357,8 @@ if __name__ == "__main__":
 #    show(core, feat)
     
     
-    cert = SpatialSoftmax(log_freq=20, )
-    cert = MultiScaleSpatialSoftmax(log_freq=1, out_cyc=True, poolings=['avg', 'max'], pointMaxW=1, layerNorma=True, probMargin=.5)
+    cert = SpatialSoftmax(log_freq=.1, cyc_r=1, out_cyc_r=2)
+#    cert = MultiScaleSpatialSoftmax(log_freq=1, out_cyc=True, poolings=['avg', 'max'], pointMaxW=1, layerNorma=True, probMargin=.5)
 #    cert = MultiScaleSpatialSoftmax(log_freq=60, out_cyc=True, poolings=['avg',], pointMaxW=0)
 #    cert = PointMax() # 8gpu : 0.1332138
     
@@ -357,9 +390,9 @@ if __name__ == "__main__":
     d = loadData('/home/dl/Downloads/tmp_file_joints_output')
     n = 2
     n = None
-    feat, pgtns = tht-d['output'][:n], tht-d['joints'][:n]
+#    feat, pgtns = tht-d['output'][:n], tht-d['joints'][:n]
     
-    pgtns[0][0][:2] = tht-[-2, 99]
+    pgtns[0][0][:2] = tht-[0, 4]
     
     feat = feat.cuda()
     feat.requires_grad = True
