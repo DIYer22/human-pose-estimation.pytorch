@@ -135,6 +135,7 @@ class JointsDataset(Dataset):
         if cf.args.task == 'ssm':
             feat_stride = self.image_size / self.heatmap_size
             joints_h = copy.deepcopy(joints)
+            # TODO 减少量化损失
             joints_h[:, 0] = (joints_h[:,0] / feat_stride[0] + 0.5)
             joints_h[:, 1] = (joints_h[:,1] / feat_stride[1] + 0.5)
             joints_h = joints_h.astype(np.int32)

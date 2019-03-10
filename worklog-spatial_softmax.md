@@ -1,14 +1,145 @@
 ## todo
 
- - [ ] 复现 simple baseline
+ - [x] 复现 simple baseline
  - [x] 修复 ylaunch in nj-site
- - [ ] 添加 ImageNet pretrain
- - [ ] 增加温度 in softmax, 因为增加温度, softmax 更敏感, in - out 差距较小时, loss 就足够小, 好优化
+ - [x] 添加 ImageNet pretrain
+ - [x] 增加温度 in softmax, 因为增加温度, softmax 更敏感, in - out 差距较小时, loss 就足够小, 好优化
  - [ ] 把 out_cyc pooling 的结果都不传梯度
  - [ ] ~~调大学习率~~
+ - [x] 优化器 adam => sgdm
+ - [x] 实验 r4321
+ - [ ] 考虑理论上加 large margin 的可能性
+ - [ ] 
  - [ ] 
 
+
+## 拷问
+
+ * 理论上, 为什么 msssm 会比 mse + gaussian 好?
+ * 理论上, 为什么加了 pointMax 会掉点? 为什么单纯的 pointMax 不会收敛到足够的好?
+ * prob margin 和 temper 对 msssm 的影响是什么? 深层次上等效吗?
+ * multi scale 是越细密越好吗? r8421 better than r31,  那么 r4321 如何?
+ * 实验中, 为什么我们的 mean@test 极不稳定, 而 Baseline 却很稳定?
+
+
+## 03.10
+
+1. 分析实验结果
+1. softmax norma, 后加大 temper
+1. 添加 prob split
+1. 大 temper 下的 loss
+
+## 03.09
+
+t 大于 14 则 nan
+
+### sgdpose @ wh (sgd on baseline p0m0rs8421t10 lr-1)
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-1.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 10
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-2.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 10
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-3.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 10
+
+
+---
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-1.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 10 --rs 4,3,2,1
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-1.yaml --gpus 0,1,2,3 --pointMaxW 0.5 --probMargin 0 --t 10
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-1.yaml --gpus 0,1,2,3 --pointMaxW 2 --probMargin 0 --t 10
+
+
+---
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-1.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 4
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm_sgd_lr-1.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 1
+
+------
+------
+
+
+
+### pose @ wh (try different temper on baseline p0,m0,rs8421,t10)
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 7
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 13
+
+
+
+---
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0.5 --probMargin 0 --t 10
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --rs 4,3,2,1 --t 10
+
+
+---
+
+
+
+-------
+-------
+
+
+
+### oldpose @ nj (try rs 4,3,2,1 on baseline p0,m0.7,r4321,t1)
+
+ylaunch python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --rs 4,3,2,1 --t 10
+
+ylaunch python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0.7 --rs 4,3,2,1 --t 10
+
+ylaunch python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --rs 4,3,2,1
+
+ylaunch python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7 --rs 4,3,2,1
+
 ## 03.08
+
+
+### oldpose @ nj (add pretrain)
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 1 --probMargin .8
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7 --t 4
+
+---
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7 --t 10
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 4
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 10
+
+---
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/384_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7 
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet101/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7 
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet152/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin .7 
+
+---------
+---------
+
+
+
+
+
+
+-------
+
 
 p{0, 1}
 m{.7, .8, .9}
