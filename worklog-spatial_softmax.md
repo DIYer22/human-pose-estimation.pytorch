@@ -17,10 +17,11 @@
 
  * 理论上, 为什么 msssm 会比 mse + gaussian 好?
  * 理论上, 为什么加了 pointMax 会掉点? 为什么单纯的 pointMax 不会收敛到足够的好?
+ * 为什么大 temper 表现更好?
  * prob margin 和 temper 对 msssm 的影响是什么? 深层次上等效吗?
  * multi scale 是越细密越好吗? r8421 better than r31,  那么 r4321 如何?
  * 实验中, 为什么我们的 mean@test 极不稳定, 而 Baseline 却很稳定?
-
+ * 为什么 sgdm 在 mse 和 msssm 上都这么弱?
 
 ## 03.10
 
@@ -28,6 +29,46 @@
 1. softmax norma, 后加大 temper
 1. 添加 prob split
 1. 大 temper 下的 loss
+
+### pose @ wh (big temper on baseline p0m0rs8421t13 mse) after sub softmax
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 15
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 20
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 30
+
+
+---
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 50
+
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 75
+
+
+
+
+
+
+---
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 12
+
+
+
+ylaunch --gpu=4 --memory=80000 --cpu=8 -- python pose_estimation/train.py --cfg experiments/mpii/resnet50/256_msssm.yaml --gpus 0,1,2,3 --pointMaxW 0 --probMargin 0 --t 14
+
+
+
+------
+------
+
+
+
 
 ## 03.09
 
