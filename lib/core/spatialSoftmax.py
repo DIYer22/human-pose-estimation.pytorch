@@ -219,7 +219,16 @@ class SpatialSoftmax(nn.Module):
             bge = th.exp(bg*t)
             prob = fge/(fge+bge+eps)
             return prob
-        def softmaxFgBg(fg, bg, t=1):
+        
+        def softmaxFgBgSubMax(fg, bg, t=1):
+            fg = fg*t
+            bg = bg*t
+            maxx = max(float(fg.max()), float(bg.max()))
+            fge = th.exp(fg-maxx)
+            bge = th.exp(bg-maxx)
+            prob = fge/(fge+bge+eps)
+            return prob
+        def softmaxFgBgSub(fg, bg, t=1):
             diff = bg-fg
             toExp = t*diff
             if (toExp > 80).sum() and timegap(1, 'toExp'):
@@ -228,8 +237,9 @@ class SpatialSoftmax(nn.Module):
                 pred-"toExp.max() is %.2f > 80, diff.max() is %.2f"%(toExp.max(), diff.max())
                 
                 
-            prob = 1/(1+th.exp(diff))
+            prob = 1/(1+th.exp(toExp))
             return prob
+        softmaxFgBg = softmaxFgBgSubMax
         def CE(fg, bg):
             prob = softmaxFgBg(fg, bg)
             avgLosses = -th.log(prob+eps)
