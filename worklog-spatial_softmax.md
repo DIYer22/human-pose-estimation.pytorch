@@ -8,6 +8,8 @@
  - [ ] ~~调大学习率~~
  - [x] 优化器 adam => sgdm
  - [x] 实验 r4321
+ - [x] align center of cyc
+ - [ ] 使用分割的 softmax 2d 替换掉 GAP, GMP (更加科学的梯度作用域)
  - [ ] 考虑理论上加 large margin 的可能性
  - [ ] 
  - [ ] 
