@@ -11,8 +11,11 @@
  - [x] align center of cyc
  - [ ] 使用分割的 softmax 2d 替换掉 GAP, GMP (更加科学的梯度作用域)
  - [ ] 考虑理论上加 large margin 的可能性
- - [ ] 
- - [ ] 
+ - [ ] CIFAR10 1 vs Other : softmax + CE + sgdm => regression + MSE + adam
+ - [ ] CIFAR10 1 vs Other : 2 class => 4 class
+ - [ ] 可视化 baseline 的 output 和 gt
+ - [ ] 可视化 msssm 的 output
+ 
 
 
 ## 拷问
